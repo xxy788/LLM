@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>AnythingLLM 文档上传</title>
+</head>
+<body>
+<h2>上传文档到 AnythingLLM 第一个工作区（含向量化嵌入）</h2>
+<input type="file" id="fileInput">
+<button id="uploadBtn">上传</button>
+<pre id="status"></pre>
+<script>
+const API = "http://localhost:3001/api/v1";
+const KEY = "8FT8RX4-N1BMPS2-MBBHYCY-Z0Q9FFZ";
+const headers = { Authorization: "Bearer " + KEY };
+const statusEl = document.getElementById("status");
+const log = (msg) => (statusEl.textContent += msg + "\n");
+
+document.getElementById("uploadBtn").onclick = async () => {
+  statusEl.textContent = "";
+  const file = document.getElementById("fileInput").files[0];
+  if (!file) return log("请先选择文件");
+
+  try {
+    log("1/2 获取工作区...");
+    const wsRes = await fetch(`${API}/workspaces`, { headers });
+    const wsData = await wsRes.json();
+    const ws = wsData.workspaces && wsData.workspaces[0];
+    if (!ws) throw new Error("没有可用工作区");
+    log(`   目标工作区: ${ws.name} (${ws.slug})`);
+
+    log("2/2 上传并向量化嵌入...");
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("addToWorkspaces", ws.slug);
+    const upRes = await fetch(`${API}/document/upload`, { method: "POST", headers, body: fd });
+    const upData = await upRes.json();
+    if (!upRes.ok || !upData.success) throw new Error(upData.error || `HTTP ${upRes.status}`);
+
+    const doc = upData.documents[0];
+    log(`完成！文档「${doc.title}」已上传并嵌入到「${ws.name}」`);
+    log(`   词数: ${doc.wordCount}，Token 估算: ${doc.token_count_estimate}`);
+  } catch (e) {
+    log("失败: " + e.message);
+  }
+};
+</script>
+</body>
+</html>

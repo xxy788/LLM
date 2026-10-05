@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "pet-hospital": {
+      "type": "streamable-http",
+      "url": "http://127.0.0.1:3100/mcp",
+      "description": "宠物医院 MCP 服务 - list_pets 工具查询宠物列表（过滤+排序+分页）",
+      "notes": {
+        "transport": "streamable-http (SDK 2.x, stateless_http=True)",
+        "protocols": "同时支持旧版(initialize 握手)和新版 2026-07-28(无握手单次 POST)",
+        "startCommand": "py -3.13 d:\\LLM\\pethospitalMCP\\pet-hospital-mcp\\server.py",
+        "petHospitalApi": "http://127.0.0.1:8080/api/v1/pets",
+        "env": {
+          "MCP_PORT": "3100",
+          "PET_HOSPITAL_API": "http://127.0.0.1:8080/api/v1/pets"
+        }
+      }
+    }
+  }
+}
