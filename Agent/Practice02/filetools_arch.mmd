@@ -1,0 +1,60 @@
+flowchart TB
+    User["用户输入 prompt"]
+
+    subgraph Loop["对话主循环 main()"]
+        direction TB
+        Build["组装 messages + tools 定义<br/>POST /chat/completions（stream=True）"]
+        Parse["解析 SSE 流数据"]
+        Content["累积 content delta<br/>实时打印回复文本"]
+        Calls["累积 tool_calls delta<br/>按 index 合并分片参数"]
+        Decide{"是否存在 tool_calls？"}
+        SaveA["追加 assistant 消息<br/>等待下一轮输入"]
+        Exec["逐个调用 run_tool()"]
+        SaveT["追加 role=tool 结果消息<br/>再次请求 LLM"]
+    end
+
+    LLM[("DeepSeek API")]
+
+    subgraph Dispatch["工具分发 run_tool(name, arguments)"]
+        ParseArgs["json.loads 解析参数"]
+        Switch{"按工具名分发"}
+    end
+
+    subgraph Impl["工具实现层"]
+        getDate["getDate<br/>subprocess 调用本地 date / time 命令"]
+        getcwd["getcwd<br/>os.getcwd()"]
+        listFiles["listFiles<br/>os.scandir 列出文件与子目录"]
+        getFileType["getFileType<br/>mimetypes.guess_type 判断类型"]
+        readFile["readFile<br/>二进制检测 + utf-8/gb18030 解码"]
+        createFile["createFile<br/>open 写入，自动创建父目录"]
+        editFile["editFile<br/>覆盖写入纯文本，须已存在"]
+        createDirectory["createDirectory<br/>os.makedirs 支持多级"]
+        deleteDirectory["deleteDirectory<br/>shutil.rmtree 支持非空目录"]
+        deleteFile["deleteFile<br/>os.remove"]
+        rename["rename<br/>os.rename 重命名文件或目录"]
+    end
+
+    User --> Build
+    Build --> LLM
+    LLM --> Parse
+    Parse --> Content
+    Parse --> Calls
+    Content --> Decide
+    Calls --> Decide
+    Decide -- 否 --> SaveA
+    SaveA --> User
+    Decide -- 是 --> Exec
+    Exec --> ParseArgs
+    ParseArgs --> Switch
+    Switch --> getDate
+    Switch --> getcwd
+    Switch --> listFiles
+    Switch --> getFileType
+    Switch --> readFile
+    Switch --> createFile
+    Switch --> editFile
+    Switch --> createDirectory
+    Switch --> deleteDirectory
+    Switch --> deleteFile
+    Switch --> rename
+    SaveT --> Build
