@@ -1,0 +1,4 @@
+requests
+ruamel.yaml
+textual
+trafilatura

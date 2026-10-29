@@ -1,0 +1,36 @@
+#chat {
+    height: 1fr;
+    padding: 1 2;
+    background: $surface;
+}
+
+Message {
+    width: 100%;
+    margin-bottom: 1;
+    padding: 0 1;
+}
+
+Message.user {
+    background: $boost;
+    border-left: thick $primary;
+}
+
+Message.assistant {
+    border-left: thick $success;
+}
+
+Message.tool {
+    color: $text-muted;
+    background: $panel;
+    text-style: italic;
+}
+
+Message.hint {
+    color: $text-muted;
+}
+
+#prompt {
+    height: auto;
+    margin: 0 1;
+    border-top: solid $primary;
+}
