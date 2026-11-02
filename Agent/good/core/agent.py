@@ -13,6 +13,7 @@ from .events import ConfirmationRequest, ErrorEvent, TextDelta, ToolCall
 from . import cli
 from .tools import tools, run_tool
 from .skills import discover_skills
+from .mcp_client import MCPClientManager
 
 
 def _build_system_prompt(skills):
@@ -41,11 +42,14 @@ def _format_http_error(response):
 
 
 class Agent:
-    def __init__(self, base_url, api_key, model):
+    def __init__(self, base_url, api_key, model, mcp_config_path=None):
         self.base_url = base_url
         self.api_key = api_key
         self.model = model
         self.skills = discover_skills()
+        self.mcp = MCPClientManager(mcp_config_path, (tool["function"]["name"] for tool in tools))
+        self.tools = [*tools, *self.mcp.tools]
+        self._mcp_errors_notified = False
         self.messages = [
             {"role": "system", "content": _build_system_prompt(self.skills)}
         ]
@@ -58,6 +62,11 @@ class Agent:
         if skill is None:
             return f"错误：未找到 Skill: {name}"
         return skill.load_file(filename)
+
+    def _sync_skill_prompt(self):
+        prompt = _build_system_prompt(self.skills)
+        if self.messages[0]["content"] != prompt:
+            self.messages[0]["content"] = prompt
 
     @classmethod
     def from_config(cls, path=None):
@@ -73,7 +82,7 @@ class Agent:
             json={
                 "model": self.model,
                 "messages": self.messages,
-                "tools": tools,
+                "tools": self.tools,
                 "stream": True,
             },
             stream=True,
@@ -81,6 +90,15 @@ class Agent:
 
     def chat(self, prompt):
         """发送一轮用户输入，产生 Event 直到本轮对话（含工具调用）结束。"""
+        if self.mcp.errors and not self._mcp_errors_notified:
+            self._mcp_errors_notified = True
+            for server_name, message in self.mcp.errors:
+                if server_name and message.startswith(f"MCP Server '{server_name}'"):
+                    error_message = message
+                else:
+                    label = f"MCP Server '{server_name}'" if server_name else "MCP 配置"
+                    error_message = f"{label}：{message}"
+                yield ErrorEvent(f"{error_message}；本地工具仍可正常使用。")
         self.messages.append({"role": "user", "content": prompt})
         while True:
             r = self._request_stream()
@@ -129,7 +147,20 @@ class Agent:
                             )
                         else:
                             result = "错误：用户拒绝或未确认执行命令，命令未运行"
+                elif self.mcp.is_tool(name):
+                    try:
+                        tool_arguments = json.loads(arguments or "{}")
+                        if not isinstance(tool_arguments, dict):
+                            raise ValueError("工具参数必须是 JSON 对象")
+                        result = self.mcp.call_tool(name, tool_arguments)
+                    except (json.JSONDecodeError, ValueError) as error:
+                        result = f"错误：MCP 工具参数无效：{error}"
                 else:
                     result = run_tool(name, arguments, skills=self.skills)
+                self._sync_skill_prompt()
                 yield ToolCall(name, result)
                 self.messages.append({"role": "tool", "tool_call_id": call["id"], "content": result})
+
+    def close(self):
+        """Close MCP sessions and their transport resources."""
+        self.mcp.close()

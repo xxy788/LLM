@@ -116,6 +116,65 @@ class DiscoverSkillsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             self.assertEqual(discover_skills(temp_dir), {})
 
+    def test_create_skill_registers_it_and_updates_agent_prompt(self):
+        content = (
+            "---\n"
+            "name: note-taker\n"
+            "description: Creates concise notes\n"
+            "---\n"
+            "# Instructions\n\nCreate concise notes.\n"
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            previous_cwd = Path.cwd()
+            os.chdir(temp_dir)
+            try:
+                agent = Agent("url", "key", "model")
+                tool_names = [tool["function"]["name"] for tool in tools]
+                self.assertIn("createSkill", tool_names)
+                result = run_tool(
+                    "createSkill",
+                    json.dumps({"name": "note-taker", "skillContext": content}),
+                    skills=agent.skills,
+                )
+                agent._sync_skill_prompt()
+            finally:
+                os.chdir(previous_cwd)
+
+            skill_path = Path(temp_dir) / ".agents" / "skills" / "note-taker" / "SKILL.md"
+            self.assertIn("已创建 Skill", result)
+            self.assertEqual(skill_path.read_text(encoding="utf-8"), content)
+            self.assertIn("note-taker", agent.skills)
+            self.assertIn("`note-taker`: Creates concise notes", agent.messages[0]["content"])
+
+    def test_create_skill_rejects_invalid_content_and_existing_targets(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            previous_cwd = Path.cwd()
+            os.chdir(temp_dir)
+            try:
+                invalid = run_tool(
+                    "createSkill",
+                    json.dumps({"name": "Bad_Name", "skillContext": "invalid"}),
+                )
+                content = (
+                    "---\nname: demo\ndescription: Existing skill\n---\nBody\n"
+                )
+                first = run_tool(
+                    "createSkill",
+                    json.dumps({"name": "demo", "skillContext": content}),
+                )
+                second = run_tool(
+                    "createSkill",
+                    json.dumps({"name": "demo", "skillContext": content}),
+                )
+            finally:
+                os.chdir(previous_cwd)
+
+            skill_path = Path(temp_dir) / ".agents" / "skills" / "demo" / "SKILL.md"
+            self.assertIn("错误", invalid)
+            self.assertIn("已创建 Skill", first)
+            self.assertIn("已存在", second)
+            self.assertEqual(skill_path.read_text(encoding="utf-8"), content)
+
 
 if __name__ == "__main__":
     unittest.main()

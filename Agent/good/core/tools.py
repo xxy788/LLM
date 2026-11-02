@@ -3,6 +3,7 @@
 import json
 
 from . import cli, fetch_web, file_ops, web_search
+from .skills import create_skill
 
 tools = [
     {
@@ -218,6 +219,27 @@ tools = [
     {
         "type": "function",
         "function": {
+            "name": "createSkill",
+            "description": "根据用户要求创建 Agent Skill。skillContext 必须是完整的 SKILL.md，包含 YAML Frontmatter（name 与参数一致、非空 description）和非空正文。名称仅允许小写字母、数字和连字符。本工具只创建 Skill 目录和 SKILL.md；如还需 references、scripts 或其他辅助文件，请继续调用现有 createDirectory/createFile 工具。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Skill 名称，仅由小写字母、数字和连字符组成",
+                    },
+                    "skillContext": {
+                        "type": "string",
+                        "description": "要写入 SKILL.md 的完整内容，必须包含符合规范的 YAML Frontmatter 和正文",
+                    },
+                },
+                "required": ["name", "skillContext"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "loadSkill",
             "description": "加载指定 Skill 的完整说明，或读取该 Skill 目录内的附加文件",
             "parameters": {
@@ -292,6 +314,14 @@ def run_tool(name, arguments, cli_approved=False, skills=None):
         return web_search.search_web(args.get("query", ""), args.get("top_k", 10))
     if name == "fetchWeb":
         return fetch_web.fetch_web(args.get("url", ""))
+    if name == "createSkill":
+        try:
+            skill = create_skill(args.get("name"), args.get("skillContext"))
+        except (OSError, ValueError) as error:
+            return f"错误：{error}"
+        if isinstance(skills, dict):
+            skills[skill.name] = skill
+        return f"已创建 Skill: {skill.name} ({skill.path})"
     if name == "loadSkill":
         skill_name = args.get("name")
         if not isinstance(skill_name, str):

@@ -2,3 +2,4 @@ requests
 ruamel.yaml
 textual
 trafilatura
+mcp>=2.0.0

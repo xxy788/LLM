@@ -14,7 +14,11 @@ from tui.app import FileAgentTUI
 
 
 def main():
-    FileAgentTUI(Agent.from_config()).run()
+    agent = Agent.from_config()
+    try:
+        FileAgentTUI(agent).run()
+    finally:
+        agent.close()
 
 
 if __name__ == "__main__":
