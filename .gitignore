@@ -1,0 +1,42 @@
+# ===== 本地配置与密钥（不要提交）=====
+**/config.ini
+**/config.local.ini
+**/config.*.local.ini
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.sample
+**/secrets/
+**/secrets.*
+**/*credentials*.json
+**/service-account*.json
+.agents/context/
+.agents/sessions/
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+.venv/
+venv/
+
+# ===== IDE / 编辑器 =====
+.idea/
+.vscode/
+
+# ===== 系统文件 =====
+.DS_Store
+Thumbs.db
